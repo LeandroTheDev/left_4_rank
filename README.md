@@ -7,7 +7,7 @@ Creates a ranking system that works across multiple servers.
 
 ## Usage
 1. Download the plugin from the latest release:
-[Releases Section](https://github.com/LeandroTheDev/unload_source_plugins/releases)
+[Releases Section](https://github.com/LeandroTheDev/left_4_rank/releases)
 
 2. Place the compiled .smx file into the following folder on your server: addons/sourcemod/plugins/
 
@@ -35,4 +35,5 @@ CREATE TABLE left4dead2 (
 5. Run the server
 
 ## Compiling
+
 - Use the compiler from sourcemod to compile the left_4_rank.sp
