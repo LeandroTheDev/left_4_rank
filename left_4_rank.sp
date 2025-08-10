@@ -12,6 +12,7 @@ public Plugin myinfo =
 float playersScores[MAXPLAYERS];
 
 // Configurations
+float playerMaxScore                  = 10.0;
 float playerScoreLoseOnRoundLose      = 5.0;
 float playerScoreEarnOnMarker         = 2.0;
 float playerScoreEarnOnRoundWin       = 2.0;
@@ -49,6 +50,8 @@ public void OnPluginStart()
             WriteFileLine(file, "\"Left4Rank\"");
             WriteFileLine(file, "{");
 
+            WriteFileLine(file, "    \"playerMaxScore\"       \"10.0\"");
+            WriteFileLine(file, "");
             WriteFileLine(file, "    \"playerScoreLoseOnRoundLose\"       \"5.0\"");
             WriteFileLine(file, "");
             WriteFileLine(file, "    \"playerScoreEarnOnMarker\"       \"2.0\"");
@@ -109,6 +112,7 @@ public void OnPluginStart()
     }
     // Loading from file
     else {
+        playerMaxScore                  = kv.GetFloat("playerMaxScore", 10.0);
         playerScoreLoseOnRoundLose      = kv.GetFloat("playerScoreLoseOnRoundLose", 5.0);
         playerScoreEarnOnMarker         = kv.GetFloat("playerScoreEarnOnMarker", 2.0);
         playerScoreEarnOnRoundWin       = kv.GetFloat("playerScoreEarnOnRoundWin", 2.0);
@@ -156,17 +160,7 @@ public void OnPluginStart()
 
     HookEventEx("revive_success", OnPlayerRevive, EventHookMode_Post);
 
-    HookEventEx("witch_killed", OnSpecialKill, EventHookMode_Post);
-
-    HookEventEx("tank_killed", OnSpecialKill, EventHookMode_Post);
-
-    HookEventEx("charger_killed", OnSpecialKill, EventHookMode_Post);
-
-    HookEventEx("spitter_killed", OnSpecialKill, EventHookMode_Post);
-
-    HookEventEx("jockey_killed", OnSpecialKill, EventHookMode_Post);
-
-    // Missing Smoker and Hunter, because there is not event for some reason
+    HookEventEx("player_death", OnSpecialKill, EventHookMode_Post);
 
     RegConsoleCmd("rank", CommandViewRank, "View your rank");
 
@@ -210,7 +204,7 @@ public void MarkerReached(Event event, const char[] name, bool dontBroadcast)
         playersScores[client] += playerScoreEarnOnMarker;
 
         if (shouldDebug)
-            PrintToServer("[Left 4 Rank] %d updated score: %d", client, playersScores[client]);
+            PrintToServer("[Left 4 Rank] %d Earned: %f for marker reach", client, playerScoreEarnOnMarker);
     }
 }
 
@@ -264,6 +258,8 @@ public void RoundEnd(Event event, const char[] name, bool dontBroadcast)
         else playersScores[client] -= playerScoreLoseOnRoundLose;
         PrintToServer("[Left 4 Rank] Player: %d, team: %d, score: %d", client, team, playersScores[client]);
 
+        CheckMaxScore(client);
+
         UploadMMR(client, playersScores[client]);
     }
 
@@ -287,7 +283,8 @@ public void OnPlayerChangeTeam(Event event, const char[] name, bool dontBroadcas
         return;
     }
 
-    PrintToServer("[Left 4 Rank] %d changed their team: %d, previously: %d", client, team, oldTeam);
+    if (shouldDebug)
+        PrintToServer("[Left 4 Rank] %d changed their team: %d, previously: %d", client, team, oldTeam);
 
     if (oldTeam == 0)
     {
@@ -345,16 +342,18 @@ public void OnPlayerIncapacitated(Event event, const char[] name, bool dontBroad
     int infectedClient        = GetClientOfUserId(event.GetInt("attacker"));
 
     // Player reducer MMR
-    if (GetClientTeam(survivorIncapacitated) == 2)
+    if (IsValidClient(survivorIncapacitated) && GetClientTeam(survivorIncapacitated) == 2)
     {
         // Check if is valid client and the attacker is not a friendly fire
-        if (IsValidClient(survivorIncapacitated) && GetClientTeam(infectedClient) != 2)
+        if (!IsValidClient(infectedClient) || GetClientTeam(infectedClient) != 2)
         {
             playersScores[survivorIncapacitated] -= playerScoreLosePerIncapacitated;
             PrintToServer("[Left 4 Rank] [OnPlayerIncapacitated] %d was incapacitated and lose: %f MMR, total: %f", survivorIncapacitated, playerScoreLosePerIncapacitated, playersScores[survivorIncapacitated]);
         }
-        else
-            PrintToServer("[Left 4 Rank] [OnPlayerIncapacitated] Ignored mmr change: Invalid client or friendly fire");
+        else {
+            if (shouldDebug)
+                PrintToServer("[Left 4 Rank] [OnPlayerIncapacitated] Ignored mmr change: Invalid client or friendly fire");
+        }
     }
     else {
         if (shouldDebug)
@@ -404,17 +403,48 @@ public void OnPlayerRevive(Event event, const char[] name, bool dontBroadcast)
 
 public void OnSpecialKill(Event event, const char[] name, bool dontBroadcast)
 {
-    int client = GetClientOfUserId(event.GetInt("userid"));
-
-    if (IsValidClient(client) && GetClientTeam(client) == 2)
+    char victimname[32];
+    event.GetString("victimname", victimname, sizeof(victimname));
+    if (StrEqual(victimname, "Infected"))
     {
-        playersScores[client] += playerScoreEarnPerSpecialKill;
         if (shouldDebug)
-            PrintToServer("[Left 4 Rank] [OnSpecialKill] %d killed special: %f MMR, total: %f", client, playerScoreEarnPerSpecialKill, playersScores[client]);
+            PrintToServer("[Left 4 Rank] Special kill ignored normal infected");
+        return;
     }
-    else {
+
+    int clientDied     = GetClientOfUserId(event.GetInt("userid"));
+    int clientAttacker = GetClientOfUserId(event.GetInt("attacker"));
+
+    if (!IsValidClient(clientAttacker))
+    {
         if (shouldDebug)
-            PrintToServer("[Left 4 Rank] [OnSpecialKill] Ignored because client is not valid or not from survivors team");
+            PrintToServer("[Left 4 Rank] Special kill ignored: invalid client %d", clientAttacker);
+        return;
+    }
+    if (GetClientTeam(clientAttacker) != 2)
+    {
+        if (shouldDebug)
+            PrintToServer("[Left 4 Rank] Special kill ignored: invalid team %d", clientAttacker);
+        return;
+    }
+    if (GetClientTeam(clientDied) != 3)
+    {
+        if (shouldDebug)
+            PrintToServer("[Left 4 Rank] Special kill ignored: invalid enemy team %d", clientAttacker);
+        return;
+    }
+
+    if (
+        StrEqual(victimname, "Hunter") || StrEqual(victimname, "Boomer") || StrEqual(victimname, "Charger") || StrEqual(victimname, "Jockey") || StrEqual(victimname, "Smoker") || StrEqual(victimname, "Tank") || StrEqual(victimname, "Spitter"))
+    {
+        if (shouldDebug)
+            PrintToServer("[Left 4 Rank] %d received %f for killing: %s", clientAttacker, playerScoreEarnPerSpecialKill, victimname);
+        playersScores[clientAttacker] += playerScoreEarnPerSpecialKill;
+    }
+    else
+    {
+        if (shouldDebug)
+            PrintToServer("[Left 4 Rank] %d wrong victim name: %s", clientAttacker, victimname);
     }
 }
 
@@ -668,5 +698,17 @@ stock Database CreateDatabaseConnection()
     }
     else {
         return database;
+    }
+}
+
+// Reset score to max score if needed
+stock CheckMaxScore(int client)
+{
+    if (playersScores[client] > playerMaxScore)
+    {
+        if (shouldDebug)
+            PrintToServer("[Left 4 Rank] %d is on max score");
+
+        playersScores[client] = playerMaxScore;
     }
 }
