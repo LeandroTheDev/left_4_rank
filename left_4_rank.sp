@@ -9,24 +9,32 @@ public Plugin myinfo =
     url         = "https://github.com/LeandroTheDev/left_4_rank"
 };
 
-float playersScores[MAXPLAYERS];
+float  playersScores[MAXPLAYERS];
 
 // Configurations
-float playerMaxScore                  = 10.0;
-float playerScoreLoseOnRoundLose      = 5.0;
-float playerScoreEarnOnMarker         = 2.0;
-float playerScoreEarnOnRoundWin       = 2.0;
-float playerScoreEarnPerSurvivorHurt  = 0.02;
-float playerScoreEarnPerSpecialKill   = 0.2;
-float playerScoreEarnPerRevive        = 0.5;
-float playerScoreLosePerIncapacitated = 0.5;
-float playerScoreEarnPerIncapacitated = 0.5;
+float  playerMaxScore                           = 10.0;
+float  playerScoreLoseOnRoundLose               = 5.0;
+float  playerScoreEarnOnMarker                  = 2.0;
+float  playerScoreEarnOnRoundWin                = 2.0;
+float  playerScoreEarnPerSurvivorHurt           = 0.02;
+float  playerScoreEarnPerSpecialKill            = 0.2;
+float  playerScoreEarnPerRevive                 = 0.5;
+float  playerScoreLosePerIncapacitated          = 0.5;
+float  playerScoreEarnPerIncapacitated          = 0.5;
 
-int   rankCount                       = 7;
-int   rankThresholds[99];
-char  rankNames[99][128];
+float  playerScoreStartSurvival                 = -3.0;
+float  playerScoreEarnSurvivalPerSecond         = 0.01;
+float  playerScoreInfectedStartSurvival         = 6.0;
+float  playerScoreInfectedLoseSurvivalPerSecond = 0.01;
 
-bool  shouldDebug = false;
+int    rankCount                                = 7;
+int    rankThresholds[99];
+char   rankNames[99][128];
+
+int    timeStampSurvived;
+Handle timeStampSurvivedTimer = INVALID_HANDLE;
+
+bool   shouldDebug            = false;
 
 public void OnPluginStart()
 {
@@ -67,6 +75,14 @@ public void OnPluginStart()
             WriteFileLine(file, "    \"playerScoreLosePerIncapacitated\"       \"0.5\"");
             WriteFileLine(file, "");
             WriteFileLine(file, "    \"playerScoreEarnPerIncapacitated\"       \"0.5\"");
+            WriteFileLine(file, "");
+            WriteFileLine(file, "    \"playerScoreStartSurvival\"       \"-3.0\"");
+            WriteFileLine(file, "");
+            WriteFileLine(file, "    \"playerScoreEarnSurvivalPerSecond\"       \"0.01\"");
+            WriteFileLine(file, "");
+            WriteFileLine(file, "    \"playerScoreInfectedStartSurvival\"       \"6.0\"");
+            WriteFileLine(file, "");
+            WriteFileLine(file, "    \"playerScoreInfectedLoseSurvivalPerSecond\"       \"0.01\"");
             WriteFileLine(file, "");
             WriteFileLine(file, "    \"rankCount\"       \"7\"");
             WriteFileLine(file, "");
@@ -146,11 +162,23 @@ public void OnPluginStart()
         }
     }
 
-    HookEventEx("versus_round_start", RoundStart, EventHookMode_Post);
-
     HookEventEx("versus_marker_reached", MarkerReached, EventHookMode_Post);
 
-    HookEventEx("round_end", RoundEnd, EventHookMode_Post);
+    char gamemode[64];
+    GetConVarString(FindConVar("mp_gamemode"), gamemode, sizeof(gamemode));
+    if (StrEqual(gamemode, "versus"))
+    {
+        PrintToServer("[Left 4 Rank] versus detected");
+        HookEventEx("versus_round_start", RoundStartVersus, EventHookMode_Post);
+        HookEventEx("round_end", RoundEndVersus, EventHookMode_Post);
+    }
+    else if (StrEqual(gamemode, "mutation15")) {
+        PrintToServer("[Left 4 Rank] survival versus detected");
+        HookEventEx("survival_round_start", RoundStartSurvivalVersus, EventHookMode_Post);
+        HookEventEx("round_end", RoundEndSurvivalVersus, EventHookMode_Post);
+    }
+    else
+        PrintToServer("[Left 4 Rank] Unsoported gamemode: %s", gamemode);
 
     HookEventEx("player_team", OnPlayerChangeTeam, EventHookMode_Post);
 
@@ -168,7 +196,7 @@ public void OnPluginStart()
 }
 
 /// REGION EVENTS
-public void RoundStart(Event event, const char[] name, bool dontBroadcast)
+public void RoundStartVersus(Event event, const char[] name, bool dontBroadcast)
 {
     PrintToServer("[Left 4 Rank] Round start");
 
@@ -186,6 +214,35 @@ public void RoundStart(Event event, const char[] name, bool dontBroadcast)
     }
 
     ClearPlayerScores();
+}
+
+public void RoundStartSurvivalVersus(Event event, const char[] name, bool dontBroadcast)
+{
+    PrintToServer("[Left 4 Rank] Round start");
+
+    int onlinePlayers[MAXPLAYERS];
+    GetOnlinePlayers(onlinePlayers, sizeof(onlinePlayers));
+
+    for (int i = 0; i < MAXPLAYERS; i++)
+    {
+        int client = onlinePlayers[i];
+        if (client == 0) break;
+
+        if (!IsValidClient(client)) continue;
+
+        RegisterPlayer(client);
+    }
+
+    ClearPlayerScores();
+
+    timeStampSurvived      = 0;
+    timeStampSurvivedTimer = CreateTimer(1.0, OnTimestampPassed, 0, TIMER_REPEAT);
+}
+
+public Action OnTimestampPassed(Handle timer, any data)
+{
+    timeStampSurvived++;
+    return Plugin_Handled;
 }
 
 public void MarkerReached(Event event, const char[] name, bool dontBroadcast)
@@ -208,7 +265,7 @@ public void MarkerReached(Event event, const char[] name, bool dontBroadcast)
     }
 }
 
-public void RoundEnd(Event event, const char[] name, bool dontBroadcast)
+public void RoundEndVersus(Event event, const char[] name, bool dontBroadcast)
 {
     int winner = event.GetInt("winner");
     int reason = event.GetInt("reason");
@@ -256,6 +313,46 @@ public void RoundEnd(Event event, const char[] name, bool dontBroadcast)
         int team = GetClientTeam(client);
         if (team == winner) playersScores[client] += playerScoreEarnOnRoundWin;
         else playersScores[client] -= playerScoreLoseOnRoundLose;
+        PrintToServer("[Left 4 Rank] Player: %d, team: %d, score: %d", client, team, playersScores[client]);
+
+        CheckMaxScore(client);
+
+        UploadMMR(client, playersScores[client]);
+    }
+
+    ClearPlayerScores();
+}
+
+public void RoundEndSurvivalVersus(Event event, const char[] name, bool dontBroadcast)
+{
+    if (timeStampSurvivedTimer != INVALID_HANDLE)
+        CloseHandle(timeStampSurvivedTimer);
+    timeStampSurvivedTimer = INVALID_HANDLE;
+
+    int reason             = event.GetInt("reason");
+
+    // Restart from hibernation
+    if (reason == 8) return;
+
+    // Scenario Restart
+    if (reason == 0) return;
+
+    // Chapter ended
+    if (reason == 6) return;
+
+    int onlinePlayers[MAXPLAYERS];
+    GetOnlinePlayers(onlinePlayers, sizeof(onlinePlayers));
+
+    for (int i = 0; i < MAXPLAYERS; i++)
+    {
+        int client = onlinePlayers[i];
+        if (client == 0) break;
+
+        if (!IsValidClient(client)) continue;
+
+        int team = GetClientTeam(client);
+        if (team == 2) playersScores[client] += GetRankEarnByTimeStampSurvival();
+        else if (team == 3) playersScores[client] += GetRankEarnByTimeStampInfected();
         PrintToServer("[Left 4 Rank] Player: %d, team: %d, score: %d", client, team, playersScores[client]);
 
         CheckMaxScore(client);
@@ -460,6 +557,21 @@ public Action CommandViewRank(int client, int args)
 }
 
 /// REGION Utils
+stock float GetRankEarnByTimeStampSurvival()
+{
+    float result    = playerScoreStartSurvival;
+    float increment = timeStampSurvived * playerScoreEarnSurvivalPerSecond;
+
+    return result + increment;
+}
+
+stock float GetRankEarnByTimeStampInfected()
+{
+    float result    = playerScoreInfectedStartSurvival;
+    float decrement = timeStampSurvived * playerScoreInfectedLoseSurvivalPerSecond;
+
+    return result - decrement;
+}
 
 stock void GetOnlinePlayers(int[] onlinePlayers, int playerSize)
 {
