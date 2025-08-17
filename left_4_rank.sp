@@ -162,8 +162,6 @@ public void OnPluginStart()
         }
     }
 
-    HookEventEx("versus_marker_reached", MarkerReached, EventHookMode_Post);
-
     char gamemode[64];
     GetConVarString(FindConVar("mp_gamemode"), gamemode, sizeof(gamemode));
     if (StrEqual(gamemode, "versus"))
@@ -171,6 +169,7 @@ public void OnPluginStart()
         PrintToServer("[Left 4 Rank] versus detected");
         HookEventEx("versus_round_start", RoundStartVersus, EventHookMode_Post);
         HookEventEx("round_end", RoundEndVersus, EventHookMode_Post);
+        HookEventEx("versus_marker_reached", MarkerReached, EventHookMode_Post);
     }
     else if (StrEqual(gamemode, "mutation15")) {
         PrintToServer("[Left 4 Rank] survival versus detected");
