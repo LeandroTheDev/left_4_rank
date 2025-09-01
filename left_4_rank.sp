@@ -10,9 +10,6 @@ public Plugin myinfo =
 };
 
 float  playersScores[MAXPLAYERS];
-// Example:
-// PlayerId: ["KILL_SPECIAL", "PROGRESS", "INCAPACITATED"]
-char   playersScoresNames[MAXPLAYERS][128][64];
 
 // Configurations
 float  playerMaxScore                           = 10.0;
@@ -180,7 +177,7 @@ public void OnPluginStart()
         HookEventEx("round_end", RoundEndSurvivalVersus, EventHookMode_Post);
     }
     else
-        PrintToServer("[Left 4 Rank] Unsoported gamemode: %s", gamemode);
+        PrintToServer("[Left 4 Rank] Unsuported gamemode: %s", gamemode);
 
     HookEventEx("player_team", OnPlayerChangeTeam, EventHookMode_Post);
 
@@ -249,6 +246,8 @@ public Action OnTimestampPassed(Handle timer, any data)
 
 public void MarkerReached(Event event, const char[] name, bool dontBroadcast)
 {
+    PrintToServer("[Left 4 Rank] Marker Reached");
+
     int onlinePlayers[MAXPLAYERS];
     GetOnlinePlayers(onlinePlayers, sizeof(onlinePlayers));
 
@@ -261,12 +260,9 @@ public void MarkerReached(Event event, const char[] name, bool dontBroadcast)
         if (GetClientTeam(client) != 2 || !IsPlayerAlive(client)) continue;
 
         playersScores[client] += playerScoreEarnOnMarker;
-        char formattedScore[64];
-        Format(formattedScore, sizeof(formattedScore), "MARKER_REACHED_%.2f", playerScoreEarnOnMarker);
-        AddPlayerScore(client, formattedScore);
 
         if (shouldDebug)
-            PrintToServer("[Left 4 Rank] %d Earned: %f for marker reach", client, playerScoreEarnOnMarker);
+            PrintToServer("[Left 4 Rank] [MarkerReached] %d Earned: %f for marker reach", client, playerScoreEarnOnMarker);
     }
 }
 
@@ -316,17 +312,24 @@ public void RoundEndVersus(Event event, const char[] name, bool dontBroadcast)
         if (!IsValidClient(client)) continue;
 
         int team = GetClientTeam(client);
-        if (team == winner) playersScores[client] += playerScoreEarnOnRoundWin;
-        else playersScores[client] -= playerScoreLoseOnRoundLose;
-        PrintToServer("[Left 4 Rank] Player: %d, team: %d, score: %d", client, team, playersScores[client]);
+        if (team == winner)
+        {
+            playersScores[client] += playerScoreEarnOnRoundWin;
+
+            if (shouldDebug)
+                PrintToServer("[Left 4 Rank] [RoundEndVersus] %d Earned: %f for winning", client, playerScoreEarnOnRoundWin);
+        }
+        else {
+            playersScores[client] -= playerScoreLoseOnRoundLose;
+            if (shouldDebug)
+                PrintToServer("[Left 4 Rank] [RoundEndVersus] %d Losed: %f for losing", client, playerScoreLoseOnRoundLose);
+        }
+        PrintToServer("[Left 4 Rank] Player: %d, team: %d, score: %f", client, team, playersScores[client]);
 
         CheckMaxScore(client);
 
         UploadMMR(client, playersScores[client]);
     }
-
-    if (shouldDebug)
-        PrintAllPlayerScores();
 
     ClearPlayerScores();
 }
@@ -362,17 +365,26 @@ public void RoundEndSurvivalVersus(Event event, const char[] name, bool dontBroa
         if (!IsValidClient(client)) continue;
 
         int team = GetClientTeam(client);
-        if (team == 2) playersScores[client] += GetRankEarnByTimeStampSurvival();
-        else if (team == 3) playersScores[client] += GetRankEarnByTimeStampInfected();
+
+        if (team == 2)
+        {
+            playersScores[client] += GetRankEarnByTimeStampSurvival();
+
+            if (shouldDebug)
+                PrintToServer("[Left 4 Rank] [RoundEndSurvivalVersus] %d SUpdated rank: %f", client, GetRankEarnByTimeStampSurvival());
+        }
+        else if (team == 3) {
+            playersScores[client] += GetRankEarnByTimeStampInfected();
+
+            if (shouldDebug)
+                PrintToServer("[Left 4 Rank] [RoundEndSurvivalVersus] %d IUpdated rank: %f", client, GetRankEarnByTimeStampInfected());
+        }
         PrintToServer("[Left 4 Rank] Player: %d, team: %d, score: %d", client, team, playersScores[client]);
 
         CheckMaxScore(client);
 
         UploadMMR(client, playersScores[client]);
     }
-
-    if (shouldDebug)
-        PrintAllPlayerScores();
 
     ClearPlayerScores();
 }
@@ -443,9 +455,6 @@ public void OnPlayerHurt(Event event, const char[] name, bool dontBroadcast)
         float earnedMMR   = playerScoreEarnPerSurvivorHurt * totalDamage;
 
         playersScores[infectedClient] += earnedMMR;
-        char formattedScore[64];
-        Format(formattedScore, sizeof(formattedScore), "DAMAGE_DEALTH_%.2f", earnedMMR);
-        AddPlayerScore(infectedClient, formattedScore);
 
         if (shouldDebug)
             PrintToServer("[Left 4 Rank] [OnPlayerHurt] %d infected deal: %d damage to %d survivor, earned mmr: %f, total mmr: %f", infectedClient, totalDamage, survivorClient, earnedMMR, playersScores[infectedClient]);
@@ -464,10 +473,8 @@ public void OnPlayerIncapacitated(Event event, const char[] name, bool dontBroad
         if (!IsValidClient(infectedClient) || GetClientTeam(infectedClient) != 2)
         {
             playersScores[survivorIncapacitated] -= playerScoreLosePerIncapacitated;
-            char formattedScore[64];
-            Format(formattedScore, sizeof(formattedScore), "MINUS_S_INCAPACITATED_%.2f", playerScoreLosePerIncapacitated);
-            AddPlayerScore(survivorIncapacitated, formattedScore);
-            PrintToServer("[Left 4 Rank] [OnPlayerIncapacitated] %d was incapacitated and lose: %f MMR, total: %f", survivorIncapacitated, playerScoreLosePerIncapacitated, playersScores[survivorIncapacitated]);
+            if (shouldDebug)
+                PrintToServer("[Left 4 Rank] [OnPlayerIncapacitated] %d was incapacitated and lose: %f MMR, total: %f", survivorIncapacitated, playerScoreLosePerIncapacitated, playersScores[survivorIncapacitated]);
         }
         else {
             if (shouldDebug)
@@ -490,9 +497,6 @@ public void OnPlayerIncapacitated(Event event, const char[] name, bool dontBroad
     if (GetClientTeam(infectedClient) == 2)
     {
         playersScores[infectedClient] += playerScoreEarnPerIncapacitated;
-        char formattedScore[64];
-        Format(formattedScore, sizeof(formattedScore), "PLUS_I_INCAPACITATED_%.2f", playerScoreEarnPerIncapacitated);
-        AddPlayerScore(infectedClient, formattedScore);
         PrintToServer("[Left 4 Rank] [OnPlayerIncapacitated] %d incapacitated someone and earn: %f MMR, total: %f", infectedClient, playerScoreEarnPerIncapacitated, playersScores[infectedClient]);
     }
     else {
@@ -514,9 +518,6 @@ public void OnPlayerRevive(Event event, const char[] name, bool dontBroadcast)
     if (GetClientTeam(client) == 2)
     {
         playersScores[client] += playerScoreEarnPerRevive;
-        char formattedScore[64];
-        Format(formattedScore, sizeof(formattedScore), "REVIVED_%.2f", playerScoreEarnPerRevive);
-        AddPlayerScore(client, formattedScore);
         if (shouldDebug)
             PrintToServer("[Left 4 Rank] [OnPlayerRevive] %d revived and earned: %f MMR, total: %f", client, playerScoreEarnPerRevive, playersScores[client]);
     }
@@ -563,11 +564,8 @@ public void OnSpecialKill(Event event, const char[] name, bool dontBroadcast)
         StrEqual(victimname, "Hunter") || StrEqual(victimname, "Boomer") || StrEqual(victimname, "Charger") || StrEqual(victimname, "Jockey") || StrEqual(victimname, "Smoker") || StrEqual(victimname, "Tank") || StrEqual(victimname, "Spitter"))
     {
         if (shouldDebug)
-            PrintToServer("[Left 4 Rank] %d received %f for killing: %s", clientAttacker, playerScoreEarnPerSpecialKill, victimname);
+            PrintToServer("[Left 4 Rank] [OnSpecialKill] %d received %f for killing: %s", clientAttacker, playerScoreEarnPerSpecialKill, victimname);
         playersScores[clientAttacker] += playerScoreEarnPerSpecialKill;
-        char formattedScore[64];
-        Format(formattedScore, sizeof(formattedScore), "SPECIAL_KILL_%.2f", playerScoreEarnPerSpecialKill);
-        AddPlayerScore(clientAttacker, formattedScore);
     }
     else
     {
@@ -640,11 +638,6 @@ stock void ClearPlayerScores()
     for (int i = 0; i < MAXPLAYERS; i++)
     {
         playersScores[i] = 0.0;
-
-        for (int j = 0; j < 128; j++)
-        {
-            playersScoresNames[i][j][0] = '\0';
-        }
     }
 
     PrintToServer("[Left 4 Rank] Scores cleared");
@@ -653,11 +646,6 @@ stock void ClearPlayerScores()
 stock void ClearSinglePlayerScore(int client)
 {
     playersScores[client] = 0.0;
-
-    for (int j = 0; j < 128; j++)
-    {
-        playersScoresNames[client][j][0] = '\0';
-    }
 
     PrintToServer("[Left 4 Rank] client %d Scores cleared", client);
 }
@@ -870,48 +858,5 @@ stock CheckMaxScore(int client)
             PrintToServer("[Left 4 Rank] %d is on max score");
 
         playersScores[client] = playerMaxScore;
-    }
-}
-
-stock bool AddPlayerScore(int client, const char[] scoreName)
-{
-    for (int j = 0; j < 128; j++)
-    {
-        if (playersScoresNames[client][j][0] == '\0')
-        {
-            strcopy(playersScoresNames[client][j], sizeof(playersScoresNames[][]), scoreName);
-            return true;
-        }
-    }
-
-    return false;
-}
-
-public void PrintAllPlayerScores()
-{
-    PrintToServer("#");
-    PrintToServer("#");
-    PrintToServer("#");
-    PrintToServer("#");
-    PrintToServer("PLAYERS FINAL SCORE");
-    PrintToServer("#");
-    PrintToServer("#");
-    PrintToServer("#");
-    PrintToServer("#");
-
-    for (int playerId = 0; playerId < MAXPLAYERS; playerId++)
-    {
-        if (playersScoresNames[playerId][0][0] == '\0') continue;
-
-        PrintToServer("---------------------------");
-        PrintToServer("Player %d scores:", playerId);
-        for (int i = 0; i < 128; i++)
-        {
-            if (playersScoresNames[playerId][i][0] == '\0')
-                break;
-
-            PrintToServer("  [%d] %s", i, playersScoresNames[playerId][i]);
-        }
-        PrintToServer("---------------------------");
     }
 }
