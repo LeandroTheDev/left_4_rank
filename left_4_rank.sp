@@ -348,6 +348,9 @@ public void RoundEndSurvivalVersus(Event event, const char[] name, bool dontBroa
     // Chapter ended
     if (reason == 6) return;
 
+    if (shouldDebug)
+        PrintToServer("[Left 4 Rank] Round ended reason: %d", reason);
+
     int onlinePlayers[MAXPLAYERS];
     GetOnlinePlayers(onlinePlayers, sizeof(onlinePlayers));
 
