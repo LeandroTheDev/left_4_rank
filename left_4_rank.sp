@@ -176,6 +176,9 @@ public void OnPluginStart()
         HookEventEx("survival_round_start", RoundStartSurvivalVersus, EventHookMode_Post);
         HookEventEx("round_end", RoundEndSurvivalVersus, EventHookMode_Post);
     }
+    else if (StrEqual(gamemode, "coop")) {
+        HookEventEx("round_end", RoundEndSurvivalVersus, EventHookMode_Post);
+    }
     else
         PrintToServer("[Left 4 Rank] Unsuported gamemode: %s", gamemode);
 
@@ -380,6 +383,74 @@ public void RoundEndSurvivalVersus(Event event, const char[] name, bool dontBroa
                 PrintToServer("[Left 4 Rank] [RoundEndSurvivalVersus] %d IUpdated rank: %f", client, GetRankEarnByTimeStampInfected());
         }
         PrintToServer("[Left 4 Rank] Player: %d, team: %d, score: %d", client, team, playersScores[client]);
+
+        CheckMaxScore(client);
+
+        UploadMMR(client, playersScores[client]);
+    }
+
+    ClearPlayerScores();
+}
+
+public void RoundEndCoop(Event event, const char[] name, bool dontBroadcast)
+{
+    int winner = event.GetInt("winner");
+    int reason = event.GetInt("reason");
+
+    // Restart from hibernation
+    if (reason == 8) return;
+
+    // Scenario Restart
+    if (reason == 0) return;
+
+    // Chapter ended
+    if (reason == 6) return;
+
+    int onlinePlayers[MAXPLAYERS];
+    GetOnlinePlayers(onlinePlayers, sizeof(onlinePlayers));
+
+    winner = 3;
+    for (int i = 0; i < MAXPLAYERS; i++)
+    {
+        int client = onlinePlayers[i];
+        if (client == 0) break;
+
+        // 2 Survival - 3 Zombie
+        int team = GetClientTeam(client);
+
+        if (team == 2)
+        {
+            // Check if a player survivor is alive
+            if (!(GetEntProp(client, Prop_Send, "m_isIncapacitated") != 0) && IsPlayerAlive(client))
+            {
+                // Yes it is, so we can say that the winner team is survivor
+                winner = 2;
+                break;
+            }
+        }
+    }
+
+    for (int i = 0; i < MAXPLAYERS; i++)
+    {
+        int client = onlinePlayers[i];
+        if (client == 0) break;
+
+        if (!IsValidClient(client)) continue;
+
+        int team = GetClientTeam(client);
+        if (team == winner)
+        {
+            playersScores[client] += playerScoreEarnOnRoundWin;
+
+            if (shouldDebug)
+                PrintToServer("[Left 4 Rank] [RoundEndCoop] %d Earned: %f for winning", client, playerScoreEarnOnRoundWin);
+        }
+        else {
+            playersScores[client] -= playerScoreLoseOnRoundLose;
+            if (shouldDebug)
+                PrintToServer("[Left 4 Rank] [RoundEndCoop] %d Losed: %f for losing", client, playerScoreLoseOnRoundLose);
+        }
+        PrintToServer("[Left 4 Rank] Player: %d, team: %d, score: %f", client, team, playersScores[client]);
 
         CheckMaxScore(client);
 
