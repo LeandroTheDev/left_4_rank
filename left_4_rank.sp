@@ -177,6 +177,7 @@ public void OnPluginStart()
         HookEventEx("round_end", RoundEndSurvivalVersus, EventHookMode_Post);
     }
     else if (StrEqual(gamemode, "coop")) {
+        PrintToServer("[Left 4 Rank] coop detected");
         HookEventEx("round_end", RoundEndSurvivalVersus, EventHookMode_Post);
     }
     else
