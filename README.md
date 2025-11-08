@@ -5,6 +5,10 @@ Creates a ranking system that works across multiple servers.
 - [Any Sourcemod compatible Database](https://www.mysql.com/)
 - Sourcemod and metamod
 
+## Command line
+- -rankDisableAutoMenu ``Disables menu when player spawn``
+- -debug ``Additional infos when playing for debug porpuses``
+
 ## Usage
 1. Download the plugin from the latest release:
 [Releases Section](https://github.com/LeandroTheDev/left_4_rank/releases)

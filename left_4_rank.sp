@@ -35,6 +35,7 @@ int    timeStampSurvived;
 Handle timeStampSurvivedTimer = INVALID_HANDLE;
 
 bool   shouldDebug            = false;
+bool   shouldDisplayMenu      = true;
 
 public void OnPluginStart()
 {
@@ -45,6 +46,14 @@ public void OnPluginStart()
         {
             PrintToServer("[Left 4 Rank] Debug is enabled");
             shouldDebug = true;
+        }
+    }
+    if (GetCommandLine(commandLine, sizeof(commandLine)))
+    {
+        if (StrContains(commandLine, "-rankDisableAutoMenu") != -1)
+        {
+            PrintToServer("[Left 4 Rank] Menu is disabled");
+            shouldDisplayMenu = false;
         }
     }
 
@@ -493,7 +502,9 @@ public void OnPlayerChangeTeam(Event event, const char[] name, bool dontBroadcas
         PrintToServer("[Left 4 Rank] Player started playing %d", client);
 
         RegisterPlayer(client);
-        ShowRankMenu(client);
+
+        if (shouldDisplayMenu)
+            ShowRankMenu(client);
     }
 }
 
@@ -628,6 +639,12 @@ public void OnSpecialKill(Event event, const char[] name, bool dontBroadcast)
     {
         if (shouldDebug)
             PrintToServer("[Left 4 Rank] Special kill ignored: invalid team %d", clientAttacker);
+        return;
+    }
+    if (!IsValidClient(clientDied))
+    {
+        if (shouldDebug)
+            PrintToServer("[Left 4 Rank] Special kill ignored: invalid died client %d", clientDied);
         return;
     }
     if (GetClientTeam(clientDied) != 3)
