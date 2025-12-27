@@ -1,6 +1,8 @@
 # Left 4 Rank
 Creates a ranking system that works across multiple servers.
 
+!rank, to view your rank
+
 ## Requirements
 - [Any Sourcemod compatible Database](https://www.mysql.com/)
 - Sourcemod and metamod
@@ -41,3 +43,4 @@ CREATE TABLE left4dead2 (
 ## Compiling
 
 - Use the compiler from sourcemod to compile the left_4_rank.sp
+
