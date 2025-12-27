@@ -790,6 +790,12 @@ stock void UploadMMR(int client, float mmrfloat)
     char        statementError[456];
     DBStatement statement = SQL_PrepareQuery(database, query, statementError, sizeof(statementError));
 
+    if (statement == null)
+    {
+        PrintToServer("[Left 4 Rank] SQL Prepare failed: %s", statementError);
+        return;
+    }
+
     SQL_BindParamInt(statement, 0, mmr);
     SQL_BindParamInt(statement, 1, steamid);
 
