@@ -3,6 +3,10 @@ Creates a ranking system that works across multiple servers.
 
 !rank, to view your rank
 
+## Features
+- On round end receive MMR or lose based on your gameplay
+- On survival and versus show the survivor MVP (Most killed special infected)
+
 ## Requirements
 - [Any Sourcemod compatible Database](https://www.mysql.com/)
 - Sourcemod and metamod

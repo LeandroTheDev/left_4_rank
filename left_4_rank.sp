@@ -5,11 +5,12 @@ public Plugin myinfo =
     name        = "Left 4 Rank",
     author      = "LeandroTheDev",
     description = "Player rank system",
-    version     = "1.0",
+    version     = "1.3",
     url         = "https://github.com/LeandroTheDev/left_4_rank"
 };
 
 float  playersScores[MAXPLAYERS];
+int    playerSpecialInfectedKilled[MAXPLAYERS];
 
 // Configurations
 float  playerMaxScore                           = 10.0;
@@ -47,9 +48,7 @@ public void OnPluginStart()
             PrintToServer("[Left 4 Rank] Debug is enabled");
             shouldDebug = true;
         }
-    }
-    if (GetCommandLine(commandLine, sizeof(commandLine)))
-    {
+
         if (StrContains(commandLine, "-rankDisableAutoMenu") != -1)
         {
             PrintToServer("[Left 4 Rank] Menu is disabled");
@@ -176,17 +175,22 @@ public void OnPluginStart()
     if (StrEqual(gamemode, "versus"))
     {
         PrintToServer("[Left 4 Rank] versus detected");
+        HookEventEx("player_hurt", OnPlayerHurt, EventHookMode_Post);
+        HookEventEx("player_death", OnSpecialKill, EventHookMode_Post);
         HookEventEx("versus_round_start", RoundStartVersus, EventHookMode_Post);
         HookEventEx("round_end", RoundEndVersus, EventHookMode_Post);
         HookEventEx("versus_marker_reached", MarkerReached, EventHookMode_Post);
     }
     else if (StrEqual(gamemode, "mutation15")) {
         PrintToServer("[Left 4 Rank] survival versus detected");
+        HookEventEx("player_hurt", OnPlayerHurt, EventHookMode_Post);
+        HookEventEx("player_death", OnSpecialKill, EventHookMode_Post);
         HookEventEx("survival_round_start", RoundStartSurvivalVersus, EventHookMode_Post);
         HookEventEx("round_end", RoundEndSurvivalVersus, EventHookMode_Post);
     }
     else if (StrEqual(gamemode, "survival")) {
         PrintToServer("[Left 4 Rank] survival detected");
+        HookEventEx("player_death", OnSpecialKill, EventHookMode_Post);
         HookEventEx("survival_round_start", RoundStartSurvivalVersus, EventHookMode_Post);
         HookEventEx("round_end", RoundEndSurvivalVersus, EventHookMode_Post);
     }
@@ -200,13 +204,9 @@ public void OnPluginStart()
 
     HookEventEx("player_team", OnPlayerChangeTeam, EventHookMode_Post);
 
-    HookEventEx("player_hurt", OnPlayerHurt, EventHookMode_Post);
-
     HookEventEx("player_incapacitated", OnPlayerIncapacitated, EventHookMode_Post);
 
     HookEventEx("revive_success", OnPlayerRevive, EventHookMode_Post);
-
-    HookEventEx("player_death", OnSpecialKill, EventHookMode_Post);
 
     RegConsoleCmd("rank", CommandViewRank, "View your rank");
 
@@ -323,6 +323,7 @@ public void RoundEndVersus(Event event, const char[] name, bool dontBroadcast)
         }
     }
 
+    int survivorsMVP[3];
     for (int i = 0; i < MAXPLAYERS; i++)
     {
         int client = onlinePlayers[i];
@@ -334,6 +335,17 @@ public void RoundEndVersus(Event event, const char[] name, bool dontBroadcast)
         if (team == winner)
         {
             playersScores[client] += playerScoreEarnOnRoundWin;
+
+            if (playerSpecialInfectedKilled[client] > survivorsMVP[0])
+            {
+                survivorsMVP[0] = client;
+            }
+            else if (playerSpecialInfectedKilled[client] > survivorsMVP[1]) {
+                survivorsMVP[1] = client;
+            }
+            else if (playerSpecialInfectedKilled[client] > survivorsMVP[2]) {
+                survivorsMVP[2] = client;
+            }
 
             if (shouldDebug)
                 PrintToServer("[Left 4 Rank] [RoundEndVersus] %d Earned: %f for winning", client, playerScoreEarnOnRoundWin);
@@ -348,6 +360,19 @@ public void RoundEndVersus(Event event, const char[] name, bool dontBroadcast)
         CheckMaxScore(client);
 
         UploadMMR(client, playersScores[client]);
+    }
+
+    PrintToChatAll("[Left 4 Rank] Survivors Special Infected MVP:");
+    for (int i = 0; i < sizeof(survivorsMVP); i++)
+    {
+        int client = survivorsMVP[i];
+        if (IsValidClient(client))
+        {
+            char clientUsername[128];
+            GetClientName(client, clientUsername, sizeof(clientUsername));
+
+            PrintToChatAll("[%d] %s: %d", i + 1, clientUsername, playerSpecialInfectedKilled[client]);
+        }
     }
 
     ClearPlayerScores();
@@ -376,6 +401,7 @@ public void RoundEndSurvivalVersus(Event event, const char[] name, bool dontBroa
     int onlinePlayers[MAXPLAYERS];
     GetOnlinePlayers(onlinePlayers, sizeof(onlinePlayers));
 
+    int survivorsMVP[3];
     for (int i = 0; i < MAXPLAYERS; i++)
     {
         int client = onlinePlayers[i];
@@ -388,6 +414,17 @@ public void RoundEndSurvivalVersus(Event event, const char[] name, bool dontBroa
         if (team == 2)
         {
             playersScores[client] += GetRankEarnByTimeStampSurvival();
+
+            if (playerSpecialInfectedKilled[client] > survivorsMVP[0])
+            {
+                survivorsMVP[0] = client;
+            }
+            else if (playerSpecialInfectedKilled[client] > survivorsMVP[1]) {
+                survivorsMVP[1] = client;
+            }
+            else if (playerSpecialInfectedKilled[client] > survivorsMVP[2]) {
+                survivorsMVP[2] = client;
+            }
 
             if (shouldDebug)
                 PrintToServer("[Left 4 Rank] [RoundEndSurvivalVersus] %d SUpdated rank: %f", client, GetRankEarnByTimeStampSurvival());
@@ -403,6 +440,19 @@ public void RoundEndSurvivalVersus(Event event, const char[] name, bool dontBroa
         CheckMaxScore(client);
 
         UploadMMR(client, playersScores[client]);
+    }
+
+    PrintToChatAll("[Left 4 Rank] Survivors Special Infected MVP:");
+    for (int i = 0; i < sizeof(survivorsMVP); i++)
+    {
+        int client = survivorsMVP[i];
+        if (IsValidClient(client))
+        {
+            char clientUsername[128];
+            GetClientName(client, clientUsername, sizeof(clientUsername));
+
+            PrintToChatAll("[%d] %s: %d", i + 1, clientUsername, playerSpecialInfectedKilled[client]);
+        }
     }
 
     ClearPlayerScores();
@@ -641,12 +691,6 @@ public void OnSpecialKill(Event event, const char[] name, bool dontBroadcast)
             PrintToServer("[Left 4 Rank] Special kill ignored: invalid team %d", clientAttacker);
         return;
     }
-    if (!IsValidClient(clientDied))
-    {
-        if (shouldDebug)
-            PrintToServer("[Left 4 Rank] Special kill ignored: invalid died client %d", clientDied);
-        return;
-    }
     if (GetClientTeam(clientDied) != 3)
     {
         if (shouldDebug)
@@ -660,6 +704,7 @@ public void OnSpecialKill(Event event, const char[] name, bool dontBroadcast)
         if (shouldDebug)
             PrintToServer("[Left 4 Rank] [OnSpecialKill] %d received %f for killing: %s", clientAttacker, playerScoreEarnPerSpecialKill, victimname);
         playersScores[clientAttacker] += playerScoreEarnPerSpecialKill;
+        playerSpecialInfectedKilled[clientAttacker] += 1
     }
     else
     {
@@ -729,9 +774,16 @@ stock bool IsValidClient(client)
 
 stock void ClearPlayerScores()
 {
+    // Cleanup player scores
     for (int i = 0; i < MAXPLAYERS; i++)
     {
         playersScores[i] = 0.0;
+    }
+
+    // Cleanup special infected killed
+    for (int i = 0; i < MAXPLAYERS; i++)
+    {
+        playerSpecialInfectedKilled[i] = 0;
     }
 
     PrintToServer("[Left 4 Rank] Scores cleared");
@@ -739,7 +791,8 @@ stock void ClearPlayerScores()
 
 stock void ClearSinglePlayerScore(int client)
 {
-    playersScores[client] = 0.0;
+    playersScores[client]               = 0.0;
+    playerSpecialInfectedKilled[client] = 0;
 
     PrintToServer("[Left 4 Rank] client %d Scores cleared", client);
 }
