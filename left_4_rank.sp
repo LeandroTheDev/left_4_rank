@@ -864,7 +864,7 @@ stock void UploadMMR(int client, float mmrfloat)
     }
     else {
         PrintToServer("[Left 4 Rank] Updated %d mmr to: %d", client, mmr);
-        PrintToChat(client, "[Rank] %d MMR", mmr);
+        PrintToChat(client, "[Left 4 Rank] %d MMR", mmr);
     }
 
     statement.Close();
