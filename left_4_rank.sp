@@ -38,6 +38,8 @@ Handle timeStampSurvivedTimer = INVALID_HANDLE;
 bool   shouldDebug            = false;
 bool   shouldDisplayMenu      = true;
 
+#define MVP_COUNT 3
+
 public void OnPluginStart()
 {
     char commandLine[512];
@@ -323,7 +325,7 @@ public void RoundEndVersus(Event event, const char[] name, bool dontBroadcast)
         }
     }
 
-    int survivorsMVP[3];
+    int survivorsMVP[MVP_COUNT];
     for (int i = 0; i < MAXPLAYERS; i++)
     {
         int client = onlinePlayers[i];
@@ -336,14 +338,18 @@ public void RoundEndVersus(Event event, const char[] name, bool dontBroadcast)
         {
             playersScores[client] += playerScoreEarnOnRoundWin;
 
-            if (playerSpecialInfectedKilled[client] > survivorsMVP[0])
+            int kills = playerSpecialInfectedKilled[client];
+            if (kills > playerSpecialInfectedKilled[survivorsMVP[0]])
             {
+                survivorsMVP[2] = survivorsMVP[1];
+                survivorsMVP[1] = survivorsMVP[0];
                 survivorsMVP[0] = client;
             }
-            else if (playerSpecialInfectedKilled[client] > survivorsMVP[1]) {
+            else if (kills > playerSpecialInfectedKilled[survivorsMVP[1]]) {
+                survivorsMVP[2] = survivorsMVP[1];
                 survivorsMVP[1] = client;
             }
-            else if (playerSpecialInfectedKilled[client] > survivorsMVP[2]) {
+            else if (kills > playerSpecialInfectedKilled[survivorsMVP[2]]) {
                 survivorsMVP[2] = client;
             }
 
@@ -363,7 +369,7 @@ public void RoundEndVersus(Event event, const char[] name, bool dontBroadcast)
     }
 
     PrintToChatAll("[Left 4 Rank] Survivors Special Infected MVP:");
-    for (int i = 0; i < sizeof(survivorsMVP); i++)
+    for (int i = 0; i < MVP_COUNT; i++)
     {
         int client = survivorsMVP[i];
         if (IsValidClient(client))
@@ -415,14 +421,18 @@ public void RoundEndSurvivalVersus(Event event, const char[] name, bool dontBroa
         {
             playersScores[client] += GetRankEarnByTimeStampSurvival();
 
-            if (playerSpecialInfectedKilled[client] > survivorsMVP[0])
+            int kills = playerSpecialInfectedKilled[client];
+            if (kills > playerSpecialInfectedKilled[survivorsMVP[0]])
             {
+                survivorsMVP[2] = survivorsMVP[1];
+                survivorsMVP[1] = survivorsMVP[0];
                 survivorsMVP[0] = client;
             }
-            else if (playerSpecialInfectedKilled[client] > survivorsMVP[1]) {
+            else if (kills > playerSpecialInfectedKilled[survivorsMVP[1]]) {
+                survivorsMVP[2] = survivorsMVP[1];
                 survivorsMVP[1] = client;
             }
-            else if (playerSpecialInfectedKilled[client] > survivorsMVP[2]) {
+            else if (kills > playerSpecialInfectedKilled[survivorsMVP[2]]) {
                 survivorsMVP[2] = client;
             }
 
