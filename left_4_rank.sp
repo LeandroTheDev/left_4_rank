@@ -334,10 +334,9 @@ public void RoundEndVersus(Event event, const char[] name, bool dontBroadcast)
         if (!IsValidClient(client)) continue;
 
         int team = GetClientTeam(client);
-        if (team == winner)
-        {
-            playersScores[client] += playerScoreEarnOnRoundWin;
 
+        if (team == 2)
+        {
             int kills = playerSpecialInfectedKilled[client];
             if (kills > playerSpecialInfectedKilled[survivorsMVP[0]])
             {
@@ -352,6 +351,11 @@ public void RoundEndVersus(Event event, const char[] name, bool dontBroadcast)
             else if (kills > playerSpecialInfectedKilled[survivorsMVP[2]]) {
                 survivorsMVP[2] = client;
             }
+        }
+
+        if (team == winner)
+        {
+            playersScores[client] += playerScoreEarnOnRoundWin;
 
             if (shouldDebug)
                 PrintToServer("[Left 4 Rank] [RoundEndVersus] %d Earned: %f for winning", client, playerScoreEarnOnRoundWin);
